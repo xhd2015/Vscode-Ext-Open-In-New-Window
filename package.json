@@ -1,0 +1,61 @@
+{
+  "name": "open-in-new-window",
+  "displayName": "Open In New Window",
+  "description": "Adds an explorer context menu command to open a selected folder, or a file's parent folder, in a VS Code window.",
+  "version": "0.0.1",
+  "publisher": "xhd2015",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xhd2015/Vscode-Ext-Open-In-New-Window"
+  },
+  "engines": {
+    "vscode": "^1.119.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "open-in-new-window.open",
+        "title": "Open in New Window"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "open-in-new-window.open",
+          "when": "resourceScheme == file",
+          "group": "navigation@10"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "open-in-new-window.open",
+          "when": "false"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.119.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.56.1",
+    "eslint": "^9.39.3",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
