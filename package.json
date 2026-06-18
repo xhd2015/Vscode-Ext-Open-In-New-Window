@@ -1,7 +1,7 @@
 {
   "name": "open-in-new-window",
   "displayName": "Open In New Window",
-  "description": "Adds an explorer context menu command to open a selected folder, or a file's parent folder, in a VS Code window.",
+  "description": "Adds explorer context menu commands to open a folder in a new VS Code window and open git repositories from folders that contain .git.",
   "version": "0.0.1",
   "publisher": "xhd2015",
   "repository": {
@@ -21,6 +21,15 @@
       {
         "command": "open-in-new-window.open",
         "title": "Open in New Window"
+      },
+      {
+        "command": "open-in-new-window.gitOpenRepository",
+        "title": "Git: Open Repository",
+        "category": "Git"
+      },
+      {
+        "command": "open-in-new-window.debugGitPaths",
+        "title": "Open In New Window: Debug Git Paths"
       }
     ],
     "menus": {
@@ -29,11 +38,29 @@
           "command": "open-in-new-window.open",
           "when": "resourceScheme == file",
           "group": "navigation@10"
+        },
+        {
+          "command": "open-in-new-window.gitOpenRepository",
+          "when": "explorerResourceIsFolder && resourceScheme == file && resourcePath in openInNewWindow.gitRepositoryPaths",
+          "group": "navigation@11"
+        },
+        {
+          "command": "open-in-new-window.debugGitPaths",
+          "when": "explorerResourceIsFolder && resourceScheme == file && openInNewWindow.isDevelopment",
+          "group": "navigation@12"
         }
       ],
       "commandPalette": [
         {
           "command": "open-in-new-window.open",
+          "when": "false"
+        },
+        {
+          "command": "open-in-new-window.gitOpenRepository",
+          "when": "false"
+        },
+        {
+          "command": "open-in-new-window.debugGitPaths",
           "when": "false"
         }
       ]

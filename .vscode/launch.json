@@ -10,6 +10,20 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"/Users/xhd2015/Projects/xhd2015/ai-critic"
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"preLaunchTask": "${defaultBuildTask}"
+		},
+		{
+			"name": "Run Extension Tests (ai-critic)",
+			"type": "extensionHost",
+			"request": "launch",
+			"testConfiguration": "${workspaceFolder}/.vscode-test.mjs",
+			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}"
 			],
 			"outFiles": [

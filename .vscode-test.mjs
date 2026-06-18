@@ -1,5 +1,16 @@
 import { defineConfig } from '@vscode/test-cli';
 
-export default defineConfig({
-	files: 'out/test/**/*.test.js',
-});
+export default defineConfig([
+	{
+		files: 'out/test/**/*.test.js',
+		exclude: ['out/test/git-context.integration.test.js'],
+	},
+	{
+		label: 'git-context-ai-critic',
+		files: 'out/test/git-context.integration.test.js',
+		workspaceFolder: '/Users/xhd2015/Projects/xhd2015/ai-critic',
+		mocha: {
+			timeout: 120000,
+		},
+	},
+]);
