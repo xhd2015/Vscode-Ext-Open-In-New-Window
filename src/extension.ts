@@ -1,7 +1,9 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
 const GIT_REPOSITORY_PATHS_CONTEXT = 'openInNewWindow.gitRepositoryPaths';
+const GIT_REPOSITORY_PATH_KEYS_CONTEXT = 'openInNewWindow.gitRepositoryPathKeys';
 const IS_DEVELOPMENT_CONTEXT = 'openInNewWindow.isDevelopment';
 const DEBUG_OUTPUT_CHANNEL = 'Open In New Window';
 const RESCAN_DEBOUNCE_MS = 5000;
@@ -18,12 +20,19 @@ const SKIPPED_SCAN_DIRECTORIES = new Set([
 let gitRepositoryPathsCache: string[] = [];
 let debugOutputChannel: vscode.OutputChannel | undefined;
 let rescanTimer: NodeJS.Timeout | undefined;
+let extensionActivated = false;
 
 export function isDevelopmentMode(extensionMode: vscode.ExtensionMode): boolean {
 	return extensionMode === vscode.ExtensionMode.Development;
 }
 
 export async function activate(context: vscode.ExtensionContext) {
+	if (extensionActivated) {
+		debugLog('activate: already initialized, skipping duplicate activation');
+		return;
+	}
+	extensionActivated = true;
+
 	const isDevelopment = isDevelopmentMode(context.extensionMode);
 	await vscode.commands.executeCommand('setContext', IS_DEVELOPMENT_CONTEXT, isDevelopment);
 
@@ -93,8 +102,6 @@ function debugLog(message: string): void {
 
 async function initializeGitRepositoryContext(context: vscode.ExtensionContext): Promise<void> {
 	gitRepositoryPathsCache = [];
-	await publishGitRepositoryPathsContext();
-	debugLog('initializeGitRepositoryContext: published empty git path context');
 
 	const workspaceWatcher = vscode.workspace.createFileSystemWatcher('**/*', false, false, false);
 	workspaceWatcher.onDidCreate((uri) => {
@@ -153,6 +160,10 @@ export async function handleWorkspacePathDeleted(uri: vscode.Uri): Promise<void>
 	if (path.basename(uri.fsPath) === '.git') {
 		const repoPath = getRepositoryPathForGitMetadata(uri.fsPath);
 		debugLog(`handleWorkspacePathDeleted: git metadata deleted at ${uri.fsPath} -> ${repoPath}`);
+		if (await isGitRepository(vscode.Uri.file(repoPath))) {
+			debugLog(`handleWorkspacePathDeleted: .git still exists for ${repoPath}, keeping cached path`);
+			return;
+		}
 		await updateGitRepositoryPath(repoPath, false);
 		scheduleDebouncedRescan('workspaceWatcher.git-delete');
 		return;
@@ -187,7 +198,8 @@ async function refreshGitRepositoryPathsContext(reason: string): Promise<void> {
 	const startedAt = Date.now();
 	debugLog(`refreshGitRepositoryPathsContext: start (${reason})`);
 
-	gitRepositoryPathsCache = await discoverGitRepositoryPaths();
+	const discovered = await discoverGitRepositoryPaths();
+	gitRepositoryPathsCache = mergeGitRepositoryPaths(discovered, gitRepositoryPathsCache);
 	await publishGitRepositoryPathsContext();
 
 	debugLog(
@@ -199,11 +211,30 @@ async function refreshGitRepositoryPathsContext(reason: string): Promise<void> {
 	}
 }
 
+export async function TestExported_refreshGitRepositoryPathsContext(reason: string): Promise<void> {
+	return refreshGitRepositoryPathsContext(reason);
+}
+
+function mergeGitRepositoryPaths(...pathSets: string[][]): string[] {
+	const merged: string[] = [];
+	for (const paths of pathSets) {
+		for (const entry of paths) {
+			if (!merged.includes(entry)) {
+				merged.push(entry);
+			}
+		}
+	}
+	return merged;
+}
+
 async function publishGitRepositoryPathsContext(): Promise<void> {
+	const pathKeys = toGitRepositoryPathContextMap(gitRepositoryPathsCache);
 	await vscode.commands.executeCommand('setContext', GIT_REPOSITORY_PATHS_CONTEXT, gitRepositoryPathsCache);
+	await vscode.commands.executeCommand('setContext', GIT_REPOSITORY_PATH_KEYS_CONTEXT, pathKeys);
 	debugLog(
 		`publishGitRepositoryPathsContext: setContext(${GIT_REPOSITORY_PATHS_CONTEXT}, `
-			+ `${gitRepositoryPathsCache.length} paths)`,
+			+ `${gitRepositoryPathsCache.length} paths; `
+			+ `${GIT_REPOSITORY_PATH_KEYS_CONTEXT}, ${Object.keys(pathKeys).length} keys)`,
 	);
 }
 
@@ -221,8 +252,47 @@ async function updateGitRepositoryPath(repoPath: string, isGit: boolean): Promis
 }
 
 export function toGitRepositoryContextKey(fsPath: string): string {
-	const normalized = path.normalize(fsPath);
-	return normalized.replace(/[/\\]+$/, '');
+	const normalized = path.normalize(fsPath).replace(/[/\\]+$/, '');
+	try {
+		return fs.realpathSync(normalized);
+	} catch {
+		return normalized;
+	}
+}
+
+function collectGitRepositoryContextPathKeys(fsPath: string): string[] {
+	const keys = new Set<string>();
+	const normalized = path.normalize(fsPath).replace(/[/\\]+$/, '');
+
+	const addKey = (value: string): void => {
+		if (!value) {
+			return;
+		}
+		keys.add(value);
+		if (process.platform === 'darwin') {
+			keys.add(value.toLowerCase());
+		}
+	};
+
+	addKey(normalized);
+	addKey(path.basename(normalized));
+	try {
+		addKey(fs.realpathSync(normalized));
+	} catch {
+		// Unit tests may pass non-existent fixture paths.
+	}
+
+	return [...keys];
+}
+
+export function toGitRepositoryPathContextMap(paths: readonly string[]): Record<string, boolean> {
+	const map: Record<string, boolean> = {};
+	for (const repoPath of paths) {
+		for (const key of collectGitRepositoryContextPathKeys(repoPath)) {
+			map[key] = true;
+		}
+	}
+	return map;
 }
 
 export async function isGitRepository(resource: vscode.Uri): Promise<boolean> {
@@ -253,38 +323,63 @@ export async function discoverGitRepositoryPaths(): Promise<string[]> {
 	return gitRepositoryPaths;
 }
 
+async function addDiscoveredGitRepositoryPath(
+	gitRepositoryPaths: string[],
+	repoPath: string,
+	depth: number,
+): Promise<void> {
+	const key = toGitRepositoryContextKey(repoPath);
+	if (gitRepositoryPaths.includes(key)) {
+		return;
+	}
+
+	gitRepositoryPaths.push(key);
+	if (!gitRepositoryPathsCache.includes(key)) {
+		gitRepositoryPathsCache.push(key);
+		await publishGitRepositoryPathsContext();
+	}
+	debugLog(`scanForGitRepositories: found git repo at ${key} (depth=${depth})`);
+}
+
 async function scanForGitRepositories(
 	directory: vscode.Uri,
 	gitRepositoryPaths: string[],
-	depth = 0,
 ): Promise<void> {
-	if (depth > 12) {
-		return;
-	}
+	const queue: Array<{ directory: vscode.Uri; depth: number }> = [{ directory, depth: 0 }];
 
-	if (await isGitRepository(directory)) {
-		const key = toGitRepositoryContextKey(directory.fsPath);
-		if (!gitRepositoryPaths.includes(key)) {
-			gitRepositoryPaths.push(key);
-			debugLog(`scanForGitRepositories: found git repo at ${key} (depth=${depth})`);
-		}
-	}
-
-	let entries: [string, vscode.FileType][];
-	try {
-		entries = await vscode.workspace.fs.readDirectory(directory);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		debugLog(`scanForGitRepositories: readDirectory failed for ${directory.fsPath}: ${message}`);
-		return;
-	}
-
-	for (const [name, type] of entries) {
-		if ((type & vscode.FileType.Directory) === 0 || SKIPPED_SCAN_DIRECTORIES.has(name)) {
+	while (queue.length > 0) {
+		const current = queue.shift();
+		if (!current || current.depth > 12) {
 			continue;
 		}
 
-		await scanForGitRepositories(vscode.Uri.joinPath(directory, name), gitRepositoryPaths, depth + 1);
+		if (await isGitRepository(current.directory)) {
+			await addDiscoveredGitRepositoryPath(
+				gitRepositoryPaths,
+				current.directory.fsPath,
+				current.depth,
+			);
+		}
+
+		let entries: [string, vscode.FileType][];
+		try {
+			entries = await vscode.workspace.fs.readDirectory(current.directory);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			debugLog(`scanForGitRepositories: readDirectory failed for ${current.directory.fsPath}: ${message}`);
+			continue;
+		}
+
+		for (const [name, type] of entries) {
+			if ((type & vscode.FileType.Directory) === 0 || SKIPPED_SCAN_DIRECTORIES.has(name)) {
+				continue;
+			}
+
+			queue.push({
+				directory: vscode.Uri.joinPath(current.directory, name),
+				depth: current.depth + 1,
+			});
+		}
 	}
 }
 
@@ -307,19 +402,26 @@ async function logGitPathDebugState(resource?: vscode.Uri): Promise<void> {
 	}
 
 	const normalizedResourcePath = toGitRepositoryContextKey(resource.fsPath);
+	const pathKeys = toGitRepositoryPathContextMap(gitRepositoryPathsCache);
+	const resourcePathKeys = collectGitRepositoryContextPathKeys(resource.fsPath);
 	const directMatch = gitRepositoryPathsCache.includes(normalizedResourcePath);
+	const menuMatch = resourcePathKeys.some((key) => pathKeys[key]);
 	const hasGit = await isGitRepository(resource);
 
 	debugLog(`debugGitPaths: resource.fsPath=${resource.fsPath}`);
 	debugLog(`debugGitPaths: normalized resourcePath=${normalizedResourcePath}`);
 	debugLog(`debugGitPaths: resourcePath in cache = ${directMatch}`);
+	debugLog(`debugGitPaths: resourcePath in pathKeys = ${menuMatch}`);
 	debugLog(`debugGitPaths: isGitRepository = ${hasGit}`);
 	debugLog(
-		`debugGitPaths: menu when expects resourcePath in ${GIT_REPOSITORY_PATHS_CONTEXT}`,
+		`debugGitPaths: menu when expects resourcePath in ${GIT_REPOSITORY_PATH_KEYS_CONTEXT}`,
 	);
+	for (const key of resourcePathKeys) {
+		debugLog(`debugGitPaths: resource alias key=${key}, present=${pathKeys[key] === true}`);
+	}
 
 	vscode.window.showInformationMessage(
-		`Git debug: cached=${directMatch}, isGit=${hasGit}, path=${normalizedResourcePath}`,
+		`Git debug: menuMatch=${menuMatch}, cached=${directMatch}, isGit=${hasGit}, path=${normalizedResourcePath}`,
 	);
 }
 
@@ -340,4 +442,5 @@ export function getPublishedGitRepositoryPaths(): readonly string[] {
 
 export function deactivate() {
 	clearScheduledRescan();
+	extensionActivated = false;
 }

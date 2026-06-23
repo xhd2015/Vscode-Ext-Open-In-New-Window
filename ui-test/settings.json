@@ -1,0 +1,11 @@
+{
+	"git.autoRepositoryDetection": false,
+	"extensions.ignoreRecommendations": true,
+	"workbench.remoteIndicator.showExtensionRecommendations": false,
+	"window.restoreWindows": "none",
+	"workbench.startupEditor": "none",
+	"workbench.welcomePage.experimentalOnboarding": false,
+	"workbench.tips.enabled": false,
+	"update.mode": "none",
+	"telemetry.telemetryLevel": "off"
+}

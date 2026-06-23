@@ -2,4 +2,7 @@ out
 dist
 node_modules
 .vscode-test/
+.test-extensions/
+test-resources/
+screenshots/
 *.vsix

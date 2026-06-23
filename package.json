@@ -14,7 +14,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -41,7 +43,7 @@
         },
         {
           "command": "open-in-new-window.gitOpenRepository",
-          "when": "explorerResourceIsFolder && resourceScheme == file && resourcePath in openInNewWindow.gitRepositoryPaths",
+          "when": "explorerResourceIsFolder && resourceScheme == file && (resourcePath in openInNewWindow.gitRepositoryPathKeys || resourceFilename in openInNewWindow.gitRepositoryPathKeys)",
           "group": "navigation@11"
         },
         {
@@ -73,16 +75,23 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
+    "ui-test:setup": "extest setup-tests --code_version 1.124.2",
+    "ui-test": "npm run compile && extest setup-and-run 'out/ui-test/**/*.test.js' --code_version 1.124.2 --code_settings ui-test/settings.json --mocha_config .mocharc.ui-test.js",
+    "ui-test:run": "extest run-tests 'out/ui-test/**/*.test.js' --code_settings ui-test/settings.json --mocha_config .mocharc.ui-test.js",
     "package": "npx @vscode/vsce package"
   },
   "devDependencies": {
-    "@types/vscode": "^1.119.0",
+    "@types/chai": "^4.3.16",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "typescript-eslint": "^8.56.1",
-    "eslint": "^9.39.3",
-    "typescript": "^5.9.3",
+    "@types/vscode": "^1.119.0",
     "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "chai": "^4.5.0",
+    "eslint": "^9.39.3",
+    "mocha": "^11.7.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1",
+    "vscode-extension-tester": "^8.23.0"
   }
 }
