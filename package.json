@@ -32,6 +32,11 @@
       {
         "command": "open-in-new-window.debugGitPaths",
         "title": "Open In New Window: Debug Git Paths"
+      },
+      {
+        "command": "open-in-new-window.openITerm2",
+        "title": "Open iTerm2",
+        "category": "Open In New Window"
       }
     ],
     "menus": {
@@ -64,6 +69,10 @@
         {
           "command": "open-in-new-window.debugGitPaths",
           "when": "false"
+        },
+        {
+          "command": "open-in-new-window.openITerm2",
+          "when": "isMac"
         }
       ]
     }
@@ -78,6 +87,7 @@
     "ui-test:setup": "extest setup-tests --code_version 1.124.2",
     "ui-test": "npm run compile && extest setup-and-run 'out/ui-test/**/*.test.js' --code_version 1.124.2 --code_settings ui-test/settings.json --mocha_config .mocharc.ui-test.js",
     "ui-test:run": "extest run-tests 'out/ui-test/**/*.test.js' --code_settings ui-test/settings.json --mocha_config .mocharc.ui-test.js",
+    "ui-test:open-iterm2": "npm run compile && extest setup-and-run 'out/ui-test/open-iterm2.test.js' --code_version 1.124.2 --code_settings ui-test/settings.json --mocha_config .mocharc.ui-test.js",
     "package": "npx @vscode/vsce package"
   },
   "devDependencies": {

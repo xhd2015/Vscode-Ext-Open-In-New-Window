@@ -1,6 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import * as os from 'os';
+import { execFile } from 'child_process';
+import { openInITerm2 } from './iterm2';
 
 const GIT_REPOSITORY_PATHS_CONTEXT = 'openInNewWindow.gitRepositoryPaths';
 const GIT_REPOSITORY_PATH_KEYS_CONTEXT = 'openInNewWindow.gitRepositoryPathKeys';
@@ -87,6 +90,29 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 		vscode.commands.registerCommand('open-in-new-window.debugGitPaths', async (resource?: vscode.Uri) => {
 			await logGitPathDebugState(resource);
+		}),
+		vscode.commands.registerCommand('open-in-new-window.openITerm2', async () => {
+			await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: 'Open iTerm2',
+					cancellable: false,
+				},
+				async (progress) => {
+					progress.report({ message: 'Launching iTerm2 window...' });
+					await openInITerm2({
+						existsSync: fs.existsSync,
+						execFile,
+						homedir: os.homedir,
+						showErrorMessage: async (message) => {
+							await vscode.window.showErrorMessage(message);
+						},
+						getWorkspaceFolders: () => vscode.workspace.workspaceFolders,
+						platform: process.platform,
+						skipLaunch: context.extensionMode === vscode.ExtensionMode.Test,
+					});
+				},
+			);
 		}),
 		{ dispose: () => clearScheduledRescan() },
 	);
