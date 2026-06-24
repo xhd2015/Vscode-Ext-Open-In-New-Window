@@ -3,7 +3,16 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as os from 'os';
 import { execFile } from 'child_process';
-import { openInITerm2 } from './iterm2';
+import {
+	describeITerm2ShortcutAction,
+	getITerm2Action,
+	ITERM2_ACTIONS,
+	ITERM2_DEFAULT_ACTION_ID,
+	ITERM2_SHORTCUT_ACTION_KEY,
+	ITerm2Action,
+	resolveITerm2ShortcutAction,
+} from './iterm2-actions';
+import { openInITerm2, OpenITerm2Deps } from './iterm2';
 
 const GIT_REPOSITORY_PATHS_CONTEXT = 'openInNewWindow.gitRepositoryPaths';
 const GIT_REPOSITORY_PATH_KEYS_CONTEXT = 'openInNewWindow.gitRepositoryPathKeys';
@@ -92,27 +101,23 @@ export async function activate(context: vscode.ExtensionContext) {
 			await logGitPathDebugState(resource);
 		}),
 		vscode.commands.registerCommand('open-in-new-window.openITerm2', async () => {
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: 'Open iTerm2',
-					cancellable: false,
-				},
-				async (progress) => {
-					progress.report({ message: 'Launching iTerm2 window...' });
-					await openInITerm2({
-						existsSync: fs.existsSync,
-						execFile,
-						homedir: os.homedir,
-						showErrorMessage: async (message) => {
-							await vscode.window.showErrorMessage(message);
-						},
-						getWorkspaceFolders: () => vscode.workspace.workspaceFolders,
-						platform: process.platform,
-						skipLaunch: context.extensionMode === vscode.ExtensionMode.Test,
-					});
-				},
-			);
+			await handleOpenITerm2Shortcut(context);
+		}),
+		vscode.commands.registerCommand('open-in-new-window.openITerm2Grok', async () => {
+			const grokAction = getITerm2Action('grok');
+			if (!grokAction) {
+				return;
+			}
+			await runITerm2Action(context, grokAction);
+		}),
+		vscode.commands.registerCommand('open-in-new-window.switchITerm2Shortcut', async () => {
+			const currentAction = getITerm2ShortcutAction(context);
+			const picked = await pickITerm2Action(currentAction.id);
+			if (!picked) {
+				return;
+			}
+			await setITerm2ShortcutAction(context, picked.id);
+			await vscode.window.showInformationMessage(describeITerm2ShortcutAction(picked));
 		}),
 		{ dispose: () => clearScheduledRescan() },
 	);
@@ -124,6 +129,73 @@ function debugLog(message: string): void {
 	const line = `[${new Date().toISOString()}] ${message}`;
 	console.log(`[open-in-new-window] ${message}`);
 	debugOutputChannel?.appendLine(line);
+}
+
+function getITerm2ShortcutAction(context: vscode.ExtensionContext): ITerm2Action {
+	const actionId = context.globalState.get<string>(ITERM2_SHORTCUT_ACTION_KEY, ITERM2_DEFAULT_ACTION_ID);
+	return resolveITerm2ShortcutAction(actionId);
+}
+
+async function setITerm2ShortcutAction(
+	context: vscode.ExtensionContext,
+	actionId: string,
+): Promise<void> {
+	await context.globalState.update(ITERM2_SHORTCUT_ACTION_KEY, actionId);
+}
+
+function createITerm2Deps(
+	context: vscode.ExtensionContext,
+	action: ITerm2Action,
+): OpenITerm2Deps {
+	return {
+		existsSync: fs.existsSync,
+		execFile,
+		homedir: os.homedir,
+		showErrorMessage: async (message) => {
+			await vscode.window.showErrorMessage(message);
+		},
+		getWorkspaceFolders: () => vscode.workspace.workspaceFolders,
+		platform: process.platform,
+		skipLaunch: context.extensionMode === vscode.ExtensionMode.Test,
+		followUpCommands: action.followUpCommands,
+	};
+}
+
+async function runITerm2Action(
+	context: vscode.ExtensionContext,
+	action: ITerm2Action,
+): Promise<void> {
+	await vscode.window.withProgress(
+		{
+			location: vscode.ProgressLocation.Notification,
+			title: action.label,
+			cancellable: false,
+		},
+		async (progress) => {
+			progress.report({ message: 'Launching iTerm2 window...' });
+			await openInITerm2(createITerm2Deps(context, action));
+		},
+	);
+}
+
+async function pickITerm2Action(activeActionId?: string): Promise<ITerm2Action | undefined> {
+	const picked = await vscode.window.showQuickPick(
+		ITERM2_ACTIONS.map((action) => ({
+			label: action.label,
+			description: action.description,
+			picked: action.id === activeActionId,
+			action,
+		})),
+		{
+			title: 'Switch Shortcut',
+			placeHolder: 'Choose what Cmd+; should run',
+		},
+	);
+	return picked?.action;
+}
+
+async function handleOpenITerm2Shortcut(context: vscode.ExtensionContext): Promise<void> {
+	await runITerm2Action(context, getITerm2ShortcutAction(context));
 }
 
 async function initializeGitRepositoryContext(context: vscode.ExtensionContext): Promise<void> {

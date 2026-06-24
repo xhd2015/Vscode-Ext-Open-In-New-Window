@@ -17,15 +17,28 @@ export function escapePathForAppleScript(dirPath: string): string {
 	return dirPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-export function buildOpenITerm2Script(dirPath: string): string {
+export function escapeCommandForAppleScript(command: string): string {
+	return command.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+export function buildOpenITerm2Script(
+	dirPath: string,
+	followUpCommands: readonly string[] = [],
+): string {
 	const escaped = escapePathForAppleScript(dirPath);
+	const sessionLines = [
+		`    set targetDir to "${escaped}"`,
+		'    write text ("cd " & quoted form of targetDir)',
+		...followUpCommands.map(
+			(command) => `    write text "${escapeCommandForAppleScript(command)}"`,
+		),
+	];
 	return [
 		'tell application "iTerm2"',
 		'  activate',
 		'  set newWindow to (create window with default profile)',
 		'  tell current session of newWindow',
-		`    set targetDir to "${escaped}"`,
-		'    write text ("cd " & quoted form of targetDir)',
+		...sessionLines,
 		'  end tell',
 		'end tell',
 	].join('\n');
@@ -51,6 +64,7 @@ export interface OpenITerm2Deps {
 	getWorkspaceFolders: () => readonly { uri: { fsPath: string } }[] | undefined;
 	platform: NodeJS.Platform;
 	skipLaunch?: boolean;
+	followUpCommands?: readonly string[];
 }
 
 function execFileAsync(
@@ -83,7 +97,7 @@ export async function openInITerm2(deps: OpenITerm2Deps): Promise<OpenITerm2Resu
 	}
 
 	const targetDir = resolveTargetDirectory(deps.getWorkspaceFolders(), deps.homedir());
-	const script = buildOpenITerm2Script(targetDir);
+	const script = buildOpenITerm2Script(targetDir, deps.followUpCommands ?? []);
 
 	if (deps.skipLaunch) {
 		return { ok: true, script, targetDir, skippedLaunch: true };

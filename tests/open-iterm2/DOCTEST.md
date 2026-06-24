@@ -12,7 +12,7 @@ Doc-style tests for the **Open iTerm2** command palette action.
 - **Extension** — `src/extension.ts`; registers `open-in-new-window.openITerm2`.
 - **iTerm2 module** — `src/iterm2.ts`; resolves directory, builds AppleScript, launches via `osascript`.
 - **Node harness** — `testdata/harness/run.mjs` loads compiled `out/iterm2.js` with mocked deps.
-- **ExTester UI** — verifies command palette visibility on macOS.
+- **ExTester UI** — verifies command palette visibility and Switch Shortcut action picker on macOS.
 
 ### Behaviors
 - **`resolveTargetDirectory`** — first workspace folder, else home directory.
@@ -37,7 +37,8 @@ scenario
 │   ├── iterm-not-installed
 │   └── osascript-failure
 └── ui/
-    └── command-palette-visible
+    ├── command-palette-visible
+    └── switch-shortcut-action-picker
 ```
 
 ## Test Index
@@ -54,6 +55,7 @@ scenario
 | 8 | `error/iterm-not-installed/` | Error when iTerm2.app missing |
 | 9 | `error/osascript-failure/` | Error when osascript fails |
 | 10 | `ui/command-palette-visible/` | Command appears in palette (ExTester) |
+| 11 | `ui/switch-shortcut-action-picker/` | Switch Shortcut shows action items (ExTester) |
 
 ## How to Run
 
@@ -107,8 +109,8 @@ type Response struct {
 
 func Run(t *testing.T, req *Request) (*Response, error) {
 	_ = activeGroup
-	if req.Scenario == "ui-command-palette-visible" {
-		return runUiTest(t)
+	if req.Scenario == "ui-command-palette-visible" || req.Scenario == "ui-switch-shortcut-action-picker" {
+		return runUiTest(t, req.Scenario)
 	}
 	harness := filepath.Join(DOCTEST_ROOT, "testdata", "harness", "run.mjs")
 	payload, err := json.Marshal(req)
@@ -132,7 +134,7 @@ func Run(t *testing.T, req *Request) (*Response, error) {
 	return &resp, nil
 }
 
-func runUiTest(t *testing.T) (*Response, error) {
+func runUiTest(t *testing.T, scenario string) (*Response, error) {
 	if testing.Short() {
 		t.Skip("ui-test skipped in short mode")
 	}
@@ -140,8 +142,15 @@ func runUiTest(t *testing.T) (*Response, error) {
 	if _, err := os.Stat(chromedriver); err != nil {
 		t.Skip("chromedriver not installed; run npm run ui-test:setup")
 	}
+	npmScript := map[string]string{
+		"ui-command-palette-visible":       "ui-test:open-iterm2",
+		"ui-switch-shortcut-action-picker": "ui-test:switch-iterm2-shortcut",
+	}[scenario]
+	if npmScript == "" {
+		t.Fatalf("unknown ui scenario: %s", scenario)
+	}
 	projectRoot := filepath.Join(DOCTEST_ROOT, "..", "..")
-	cmd := exec.Command("npm", "run", "ui-test:open-iterm2")
+	cmd := exec.Command("npm", "run", npmScript)
 	cmd.Dir = projectRoot
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
