@@ -93,7 +93,7 @@
     },
     "keybindings": [
       {
-        "command": "open-in-new-window.openITerm2",
+        "command": "open-in-new-window.openITerm2Shortcut",
         "key": "cmd+;",
         "mac": "cmd+;",
         "when": "isMac"

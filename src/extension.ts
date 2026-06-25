@@ -5,6 +5,7 @@ import * as os from 'os';
 import { execFile } from 'child_process';
 import {
 	describeITerm2ShortcutAction,
+	getDefaultITerm2Action,
 	getITerm2Action,
 	ITERM2_ACTIONS,
 	ITERM2_DEFAULT_ACTION_ID,
@@ -101,6 +102,9 @@ export async function activate(context: vscode.ExtensionContext) {
 			await logGitPathDebugState(resource);
 		}),
 		vscode.commands.registerCommand('open-in-new-window.openITerm2', async () => {
+			await runITerm2Action(context, getDefaultITerm2Action());
+		}),
+		vscode.commands.registerCommand('open-in-new-window.openITerm2Shortcut', async () => {
 			await handleOpenITerm2Shortcut(context);
 		}),
 		vscode.commands.registerCommand('open-in-new-window.openITerm2Grok', async () => {
