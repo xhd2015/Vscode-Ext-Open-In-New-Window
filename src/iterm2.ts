@@ -21,25 +21,101 @@ export function escapeCommandForAppleScript(command: string): string {
 	return command.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+export function normalizeTargetDirectory(
+	dirPath: string,
+	options: {
+		existsSync?: (path: string) => boolean;
+		realpathSync?: (path: string) => string;
+	} = {},
+): string {
+	const existsSync = options.existsSync ?? fs.existsSync;
+	const realpathSync = options.realpathSync ?? ((path: string) => fs.realpathSync.native(path));
+	try {
+		if (existsSync(dirPath)) {
+			return realpathSync(dirPath);
+		}
+	} catch {
+		// Keep the original path when normalization fails.
+	}
+	return dirPath;
+}
+
+export function buildSessionCommandLines(
+	followUpCommands: readonly string[] = [],
+): string[] {
+	return [
+		'        write text ("cd " & quoted form of targetDir)',
+		...followUpCommands.map(
+			(command) => `        write text "${escapeCommandForAppleScript(command)}"`,
+		),
+	];
+}
+
+export function buildPathScanSmokeScript(): string {
+	return [
+		'tell application "iTerm2"',
+		'  repeat with aWindow in windows',
+		'    repeat with aTab in tabs of aWindow',
+		'      repeat with aSession in sessions of aTab',
+		'        try',
+		'          tell aSession',
+		'            set sessionPath to variable named "path"',
+		'          end tell',
+		'        on error',
+		'        end try',
+		'      end repeat',
+		'    end repeat',
+		'  end repeat',
+		'  return "ok"',
+		'end tell',
+	].join('\n');
+}
+
 export function buildOpenITerm2Script(
 	dirPath: string,
 	followUpCommands: readonly string[] = [],
 ): string {
 	const escaped = escapePathForAppleScript(dirPath);
-	const sessionLines = [
-		`    set targetDir to "${escaped}"`,
-		'    write text ("cd " & quoted form of targetDir)',
-		...followUpCommands.map(
-			(command) => `    write text "${escapeCommandForAppleScript(command)}"`,
-		),
-	];
+	const sessionCommandLines = buildSessionCommandLines(followUpCommands);
 	return [
 		'tell application "iTerm2"',
 		'  activate',
-		'  set newWindow to (create window with default profile)',
-		'  tell current session of newWindow',
-		...sessionLines,
-		'  end tell',
+		`  set targetDir to "${escaped}"`,
+		'  set matchingWindow to missing value',
+		'  repeat with aWindow in windows',
+		'    if not (is hotkey window of aWindow) then',
+		'      repeat with aTab in tabs of aWindow',
+		'        repeat with aSession in sessions of aTab',
+		'          try',
+		'            tell aSession',
+		'              set sessionPath to variable named "path"',
+		'            end tell',
+		'            if sessionPath is targetDir then',
+		'              set matchingWindow to aWindow',
+		'              exit repeat',
+		'            end if',
+		'          on error',
+		'          end try',
+		'        end repeat',
+		'        if matchingWindow is not missing value then exit repeat',
+		'      end repeat',
+		'      if matchingWindow is not missing value then exit repeat',
+		'    end if',
+		'  end repeat',
+		'  if matchingWindow is not missing value then',
+		'    tell matchingWindow',
+		'      create tab with default profile',
+		'      tell current session of current tab',
+		...sessionCommandLines,
+		'      end tell',
+		'      select',
+		'    end tell',
+		'  else',
+		'    set newWindow to (create window with default profile)',
+		'    tell current session of newWindow',
+		...sessionCommandLines,
+		'    end tell',
+		'  end if',
 		'end tell',
 	].join('\n');
 }
@@ -96,7 +172,9 @@ export async function openInITerm2(deps: OpenITerm2Deps): Promise<OpenITerm2Resu
 		return { ok: false, error: 'iterm-not-installed' };
 	}
 
-	const targetDir = resolveTargetDirectory(deps.getWorkspaceFolders(), deps.homedir());
+	const targetDir = normalizeTargetDirectory(
+		resolveTargetDirectory(deps.getWorkspaceFolders(), deps.homedir()),
+	);
 	const script = buildOpenITerm2Script(targetDir, deps.followUpCommands ?? []);
 
 	if (deps.skipLaunch) {

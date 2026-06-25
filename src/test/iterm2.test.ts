@@ -1,9 +1,12 @@
 import * as assert from 'assert';
 import {
 	buildOpenITerm2Script,
+	buildPathScanSmokeScript,
+	buildSessionCommandLines,
 	escapePathForAppleScript,
 	isITerm2Installed,
 	ITERM2_APP_PATH,
+	normalizeTargetDirectory,
 	resolveTargetDirectory,
 } from '../iterm2';
 
@@ -30,13 +33,45 @@ suite('iTerm2 Test Suite', () => {
 		assert.strictEqual(escapePathForAppleScript('/tmp/"proj"'), '/tmp/\\"proj\\"');
 	});
 
-	test('buildOpenITerm2Script creates a new window and cds via write text', () => {
+	test('buildOpenITerm2Script reuses a matching window via new tab with window fallback', () => {
 		const script = buildOpenITerm2Script('/tmp/proj');
-		assert.match(script, /create window with default profile/);
-		assert.doesNotMatch(script, /create tab/);
 		assert.match(script, /set targetDir to "\/tmp\/proj"/);
+		assert.match(script, /tell aSession[\s\S]*variable named "path"/);
+		assert.match(script, /on error/);
+		assert.doesNotMatch(script, /variable named "path" of aSession/);
+		assert.match(script, /matchingWindow/);
+		assert.match(script, /is hotkey window/);
+		assert.match(script, /create tab with default profile/);
+		assert.match(script, /create window with default profile/);
 		assert.match(script, /write text \("cd " & quoted form of targetDir\)/);
 		assert.doesNotMatch(script, /exec \$SHELL/);
+	});
+
+	test('buildPathScanSmokeScript reads session path via tell aSession', () => {
+		const script = buildPathScanSmokeScript();
+		assert.match(script, /tell aSession/);
+		assert.match(script, /on error/);
+		assert.doesNotMatch(script, /variable named "path" of aSession/);
+	});
+
+	test('buildSessionCommandLines includes follow-up commands', () => {
+		const lines = buildSessionCommandLines(['grok']);
+		assert.match(lines.join('\n'), /write text "grok"/);
+	});
+
+	test('normalizeTargetDirectory resolves existing paths', () => {
+		const normalized = normalizeTargetDirectory('/tmp/proj', {
+			existsSync: () => true,
+			realpathSync: () => '/private/tmp/proj',
+		});
+		assert.strictEqual(normalized, '/private/tmp/proj');
+	});
+
+	test('normalizeTargetDirectory keeps original path when missing', () => {
+		const normalized = normalizeTargetDirectory('/tmp/missing', {
+			existsSync: () => false,
+		});
+		assert.strictEqual(normalized, '/tmp/missing');
 	});
 
 	test('isITerm2Installed checks the iTerm.app path', () => {

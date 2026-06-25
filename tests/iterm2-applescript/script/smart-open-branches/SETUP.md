@@ -1,10 +1,10 @@
 # Scenario
 
-**Feature**: launch / builds-new-window-script
+**Feature**: script / smart-open-branches
 
 ```go
 func Setup(t *testing.T, req *Request) error {
-	req.Scenario = "launch-builds-new-window-script"
+	req.Scenario = "script-smart-open-branches"
 	req.TestPath = "/tmp/proj"
 	return nil
 }

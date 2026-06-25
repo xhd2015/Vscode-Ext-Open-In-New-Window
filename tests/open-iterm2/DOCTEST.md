@@ -23,7 +23,8 @@ routing, and Switch Shortcut preference storage.
 - **Palette Open iTerm2: Grok** — always runs grok.
 - **Switch Shortcut** — persists preference and shows confirmation message.
 - **`resolveTargetDirectory`** — first workspace folder, else home directory.
-- **`buildOpenITerm2Script`** — new window (not tab) with `cd` and optional follow-up commands.
+- **`buildOpenITerm2Script`** — AppleScript details are covered in `tests/iterm2-applescript/`.
+- **`normalizeTargetDirectory`** — resolves existing paths to their canonical form before matching.
 - **`openInITerm2`** — checks iTerm2 install, launches or surfaces errors.
 
 ## Decision Tree
@@ -33,12 +34,12 @@ scenario
 ├── path-resolution/
 │   ├── workspace-first-folder
 │   ├── no-workspace-uses-home
-│   └── multi-root-uses-first
+│   ├── multi-root-uses-first
+│   └── normalize-existing-path
 ├── path-escaping/
 │   ├── spaces
 │   └── single-quote
 ├── launch/
-│   ├── builds-new-window-script
 │   └── invokes-osascript
 ├── error/
 │   ├── iterm-not-installed
@@ -74,9 +75,9 @@ scenario
 | 1 | `path-resolution/workspace-first-folder/` | Uses first workspace folder |
 | 2 | `path-resolution/no-workspace-uses-home/` | Falls back to home directory |
 | 3 | `path-resolution/multi-root-uses-first/` | Multi-root uses first folder |
-| 4 | `path-escaping/spaces/` | Escapes paths with spaces |
-| 5 | `path-escaping/single-quote/` | Escapes paths with single quotes |
-| 6 | `launch/builds-new-window-script/` | Script creates window, not tab |
+| 4 | `path-resolution/normalize-existing-path/` | Normalizes existing paths before matching |
+| 5 | `path-escaping/spaces/` | Escapes paths with spaces |
+| 6 | `path-escaping/single-quote/` | Escapes paths with single quotes |
 | 7 | `launch/invokes-osascript/` | Calls `osascript` with built script |
 | 8 | `error/iterm-not-installed/` | Error when iTerm2.app missing |
 | 9 | `error/osascript-failure/` | Error when osascript fails |
@@ -95,6 +96,8 @@ scenario
 | 22 | `command-routing/switch-shortcut/persists-cd-only/` | Switch Shortcut persists cd-only |
 | 23 | `ui/command-palette-visible/` | Command appears in palette (ExTester) |
 | 24 | `ui/switch-shortcut-action-picker/` | Switch Shortcut shows action items (ExTester) |
+
+AppleScript generation and live `osascript` smoke tests live in `tests/iterm2-applescript/`.
 
 ## How to Run
 
@@ -130,6 +133,8 @@ type Request struct {
 	WorkspaceFolders     []string       `json:"workspaceFolders"`
 	Homedir              string         `json:"homedir"`
 	TestPath             string         `json:"testPath"`
+	PathExists           bool           `json:"pathExists"`
+	RealPath             string         `json:"realPath"`
 	ExistsITerm          bool           `json:"existsITerm"`
 	ExecFileError        string         `json:"execFileError"`
 	Platform             string         `json:"platform"`
@@ -154,6 +159,7 @@ type Response struct {
 	EscapedPath            string            `json:"escapedPath"`
 	UsesCreateWindow       bool              `json:"usesCreateWindow"`
 	UsesCreateTab          bool              `json:"usesCreateTab"`
+	UsesPathScan           bool              `json:"usesPathScan"`
 	Ok                     bool              `json:"ok"`
 	Error                  string            `json:"error"`
 	ExecFileCalled         bool              `json:"execFileCalled"`

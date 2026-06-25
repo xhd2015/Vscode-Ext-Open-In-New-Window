@@ -176,7 +176,7 @@ async function runITerm2Action(
 			cancellable: false,
 		},
 		async (progress) => {
-			progress.report({ message: 'Launching iTerm2 window...' });
+			progress.report({ message: 'Launching iTerm2...' });
 			await openInITerm2(createITerm2Deps(context, action));
 		},
 	);

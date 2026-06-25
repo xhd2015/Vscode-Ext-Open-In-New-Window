@@ -13,7 +13,7 @@ export const ITERM2_ACTIONS: readonly ITerm2Action[] = [
 	{
 		id: ITERM2_DEFAULT_ACTION_ID,
 		label: 'Open iTerm2',
-		description: 'Open a new iTerm2 window and cd to the workspace',
+		description: 'Open iTerm2 and cd to the workspace, reusing an existing window when possible',
 		followUpCommands: [],
 	},
 	{

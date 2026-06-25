@@ -219,13 +219,12 @@ export async function runScenario(request) {
 			escapedPath: iterm2.escapePathForAppleScript(request.testPath ?? ''),
 		};
 	}
-	case 'launch-builds-new-window-script': {
-		const script = iterm2.buildOpenITerm2Script(request.testPath ?? '/tmp/proj');
-		return {
-			script,
-			usesCreateWindow: script.includes('create window with default profile'),
-			usesCreateTab: script.includes('create tab'),
-		};
+	case 'path-normalize-existing': {
+		const targetDir = iterm2.normalizeTargetDirectory(request.testPath ?? '/tmp/proj', {
+			existsSync: () => request.pathExists !== false,
+			realpathSync: () => request.realPath ?? request.testPath ?? '/tmp/proj',
+		});
+		return { targetDir };
 	}
 	case 'launch-invokes-osascript':
 	case 'error-iterm-not-installed':

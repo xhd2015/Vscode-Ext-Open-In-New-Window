@@ -15,5 +15,5 @@
 
 ## Context
 - **Target directory**: first workspace folder, or home when no workspace is open.
-- **Launch**: AppleScript via `osascript`, creating a new iTerm2 window with `cd`.
+- **Launch**: AppleScript via `osascript`, reusing a matching iTerm2 window via new tab or creating a new window with `cd`.
 - **Errors**: show message when iTerm2 is not installed or `osascript` fails.
