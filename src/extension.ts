@@ -14,6 +14,18 @@ import {
 	resolveITerm2ShortcutAction,
 } from './iterm2-actions';
 import { openInITerm2, OpenITerm2Deps } from './iterm2';
+import { openDirAtPath } from './open-dir';
+import {
+	IPC_VERSION,
+	startIpcServer,
+	stopIpcServer,
+	TestExported_forceLeaseWatchForTest as forceLeaseWatchForWindow,
+	TestExported_getIpcLeaseState,
+	TestExported_ipcPing,
+	TestExported_setKoolDirForTest,
+	TestExported_setWindowIdForTest,
+	TestExported_waitForIpcReady as waitForIpcReadyByWindow,
+} from './ipc-server';
 
 const GIT_REPOSITORY_PATHS_CONTEXT = 'openInNewWindow.gitRepositoryPaths';
 const GIT_REPOSITORY_PATH_KEYS_CONTEXT = 'openInNewWindow.gitRepositoryPathKeys';
@@ -34,6 +46,7 @@ let gitRepositoryPathsCache: string[] = [];
 let debugOutputChannel: vscode.OutputChannel | undefined;
 let rescanTimer: NodeJS.Timeout | undefined;
 let extensionActivated = false;
+let ipcWindowId = 'default-window';
 
 export function isDevelopmentMode(extensionMode: vscode.ExtensionMode): boolean {
 	return extensionMode === vscode.ExtensionMode.Development;
@@ -110,12 +123,23 @@ export async function activate(context: vscode.ExtensionContext) {
 		context.subscriptions.push(
 			vscode.window.registerUriHandler({
 				handleUri(uri: vscode.Uri) {
-					void TestExported_handleGitOpenUri(uri.toString());
+					if (uri.path === '/open') {
+						void TestExported_handleOpenUri(uri.toString());
+						return;
+					}
+					if (uri.path === '/git-open') {
+						void TestExported_handleGitOpenUri(uri.toString());
+					}
 				},
 			}),
 		);
 	}
 
+	const contextWindowId = (context as vscode.ExtensionContext & { windowId?: string }).windowId;
+	ipcWindowId = contextWindowId ?? 'default-window';
+	TestExported_setWindowIdForTest(ipcWindowId);
+
+	await startIpcServer(handleIpcRequestLine, ipcWindowId);
 	await initializeGitRepositoryContext(context);
 }
 
@@ -162,6 +186,110 @@ async function openGitRepositoryAtPath(
 		await vscode.window.showErrorMessage(fullMessage);
 		return { errorMessage: fullMessage };
 	}
+}
+
+type OpenUriResult = {
+	errorMessage?: string;
+};
+
+async function handleGitOpenIpc(fsPath: string): Promise<{ ok: boolean; error?: string }> {
+	const normalizedPath = toGitRepositoryContextKey(fsPath);
+	const resource = vscode.Uri.file(normalizedPath);
+
+	try {
+		const stat = await vscode.workspace.fs.stat(resource);
+		if ((stat.type & vscode.FileType.Directory) === 0) {
+			return { ok: false, error: 'Unable to open git repository: not a directory' };
+		}
+
+		const hasGit = await isGitRepository(resource);
+		if (!hasGit) {
+			return { ok: true };
+		}
+
+		await vscode.commands.executeCommand('git.openRepository', normalizedPath);
+		return { ok: true };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return { ok: false, error: `Unable to open git repository: ${message}` };
+	}
+}
+
+async function handleIpcRequestLine(body: string): Promise<string> {
+	let request: { op?: string; path?: string; replace?: boolean };
+	try {
+		request = JSON.parse(body) as { op?: string; path?: string; replace?: boolean };
+	} catch {
+		return JSON.stringify({ ok: false, error: 'Invalid JSON request' });
+	}
+
+	if (!request.op) {
+		return JSON.stringify({ ok: false, error: 'Missing op' });
+	}
+
+	switch (request.op) {
+	case 'ping':
+		return JSON.stringify({ ok: true, version: IPC_VERSION });
+	case 'open': {
+		if (!request.path) {
+			return JSON.stringify({ ok: false, error: 'Missing path' });
+		}
+		const result = await openDirAtPath(request.path, { replace: request.replace });
+		if (result.errorMessage) {
+			return JSON.stringify({ ok: false, error: result.errorMessage });
+		}
+		return JSON.stringify({ ok: true });
+	}
+	case 'git-open': {
+		if (!request.path) {
+			return JSON.stringify({ ok: false, error: 'Missing path' });
+		}
+		const result = await handleGitOpenIpc(request.path);
+		if (!result.ok) {
+			return JSON.stringify({ ok: false, error: result.error ?? 'Unable to open git repository' });
+		}
+		return JSON.stringify({ ok: true });
+	}
+	default:
+		return JSON.stringify({ ok: false, error: `Unknown op: ${request.op}` });
+	}
+}
+
+export async function TestExported_ipcHandleRequest(requestJSON: string): Promise<string> {
+	return handleIpcRequestLine(requestJSON);
+}
+
+export async function TestExported_handleOpenUri(
+	uriString: string,
+	_state?: OpenUriResult,
+): Promise<OpenUriResult> {
+	const uri = vscode.Uri.parse(uriString);
+	if (uri.path !== '/open') {
+		const message = `Invalid URI path for open handler: ${uri.path}`;
+		await vscode.window.showErrorMessage(message);
+		return { errorMessage: message };
+	}
+
+	const params = new URLSearchParams(uri.query);
+	if (!params.has('path')) {
+		const message = 'Missing path query parameter';
+		await vscode.window.showErrorMessage(message);
+		return { errorMessage: message };
+	}
+
+	const rawPath = params.get('path');
+	if (rawPath === null || rawPath.trim() === '') {
+		const message = 'Empty path query parameter';
+		await vscode.window.showErrorMessage(message);
+		return { errorMessage: message };
+	}
+
+	const replace = params.get('replace') === 'true';
+	const result = await openDirAtPath(rawPath, { replace });
+	if (result.errorMessage) {
+		await vscode.window.showErrorMessage(result.errorMessage);
+	}
+	return result;
 }
 
 export async function TestExported_handleGitOpenUri(
@@ -607,5 +735,21 @@ export function getPublishedGitRepositoryPaths(): readonly string[] {
 
 export function deactivate() {
 	clearScheduledRescan();
+	stopIpcServer(ipcWindowId);
 	extensionActivated = false;
 }
+
+export async function TestExported_waitForIpcReady(): Promise<void> {
+	return waitForIpcReadyByWindow(ipcWindowId);
+}
+
+export async function TestExported_forceLeaseWatchForTest(): Promise<void> {
+	return forceLeaseWatchForWindow(ipcWindowId);
+}
+
+export {
+	TestExported_getIpcLeaseState,
+	TestExported_ipcPing,
+	TestExported_setKoolDirForTest,
+	TestExported_setWindowIdForTest,
+};
