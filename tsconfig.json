@@ -1,4 +1,11 @@
 {
+	"include": [
+		"src/**/*"
+	],
+	"exclude": [
+		"kool-vscode/**",
+		"node_modules"
+	],
 	"compilerOptions": {
 		"module": "Node16",
 		"target": "ES2022",

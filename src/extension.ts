@@ -76,27 +76,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 
 			debugLog(`gitOpenRepository: invoked for ${resource.fsPath}`);
-
-			try {
-				const stat = await vscode.workspace.fs.stat(resource);
-				if ((stat.type & vscode.FileType.Directory) === 0) {
-					debugLog(`gitOpenRepository: skipped, not a directory (${resource.fsPath})`);
-					return;
-				}
-
-				const hasGit = await isGitRepository(resource);
-				debugLog(`gitOpenRepository: isGitRepository(${resource.fsPath}) = ${hasGit}`);
-				if (!hasGit) {
-					return;
-				}
-
-				await vscode.commands.executeCommand('git.openRepository', resource.fsPath);
-				debugLog(`gitOpenRepository: executed git.openRepository for ${resource.fsPath}`);
-			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				debugLog(`gitOpenRepository: error for ${resource.fsPath}: ${message}`);
-				vscode.window.showErrorMessage(`Unable to open git repository: ${message}`);
-			}
+			await openGitRepositoryAtPath(resource.fsPath, { silentNotDirectory: true });
 		}),
 		vscode.commands.registerCommand('open-in-new-window.debugGitPaths', async (resource?: vscode.Uri) => {
 			await logGitPathDebugState(resource);
@@ -126,7 +106,90 @@ export async function activate(context: vscode.ExtensionContext) {
 		{ dispose: () => clearScheduledRescan() },
 	);
 
+	if (typeof vscode.window.registerUriHandler === 'function') {
+		context.subscriptions.push(
+			vscode.window.registerUriHandler({
+				handleUri(uri: vscode.Uri) {
+					void TestExported_handleGitOpenUri(uri.toString());
+				},
+			}),
+		);
+	}
+
 	await initializeGitRepositoryContext(context);
+}
+
+type OpenGitRepositoryOptions = {
+	silentNotDirectory?: boolean;
+};
+
+type OpenGitRepositoryResult = {
+	errorMessage?: string;
+};
+
+async function openGitRepositoryAtPath(
+	fsPath: string,
+	options?: OpenGitRepositoryOptions,
+): Promise<OpenGitRepositoryResult> {
+	const normalizedPath = toGitRepositoryContextKey(fsPath);
+	const resource = vscode.Uri.file(normalizedPath);
+
+	try {
+		const stat = await vscode.workspace.fs.stat(resource);
+		if ((stat.type & vscode.FileType.Directory) === 0) {
+			debugLog(`openGitRepositoryAtPath: skipped, not a directory (${normalizedPath})`);
+			if (options?.silentNotDirectory) {
+				return {};
+			}
+			const message = 'Unable to open git repository: not a directory';
+			await vscode.window.showErrorMessage(message);
+			return { errorMessage: message };
+		}
+
+		const hasGit = await isGitRepository(resource);
+		debugLog(`openGitRepositoryAtPath: isGitRepository(${normalizedPath}) = ${hasGit}`);
+		if (!hasGit) {
+			return {};
+		}
+
+		await vscode.commands.executeCommand('git.openRepository', normalizedPath);
+		debugLog(`openGitRepositoryAtPath: executed git.openRepository for ${normalizedPath}`);
+		return {};
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		debugLog(`openGitRepositoryAtPath: error for ${normalizedPath}: ${message}`);
+		const fullMessage = `Unable to open git repository: ${message}`;
+		await vscode.window.showErrorMessage(fullMessage);
+		return { errorMessage: fullMessage };
+	}
+}
+
+export async function TestExported_handleGitOpenUri(
+	uriString: string,
+	_state?: { errorMessage?: string },
+): Promise<OpenGitRepositoryResult> {
+	const uri = vscode.Uri.parse(uriString);
+	if (uri.path !== '/git-open') {
+		const message = `Invalid URI path for git-open handler: ${uri.path}`;
+		await vscode.window.showErrorMessage(message);
+		return { errorMessage: message };
+	}
+
+	const params = new URLSearchParams(uri.query);
+	if (!params.has('path')) {
+		const message = 'Missing path query parameter';
+		await vscode.window.showErrorMessage(message);
+		return { errorMessage: message };
+	}
+
+	const rawPath = params.get('path');
+	if (rawPath === null || rawPath.trim() === '') {
+		const message = 'Empty path query parameter';
+		await vscode.window.showErrorMessage(message);
+		return { errorMessage: message };
+	}
+
+	return openGitRepositoryAtPath(rawPath);
 }
 
 function debugLog(message: string): void {
