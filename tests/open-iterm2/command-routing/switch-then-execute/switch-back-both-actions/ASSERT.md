@@ -21,8 +21,8 @@ func Assert(t *testing.T, req *Request, resp *Response, err error) {
 		t.Fatal("missing shortcut execution")
 	}
 	expectFollowUp(t, palette.FollowUpCommands)
-	expectNoGrokScript(t, palette.Script, "palette after switch back")
+	expectNoFollowUpScript(t, palette.Script, "grok", "palette after switch back")
 	expectFollowUp(t, shortcut.FollowUpCommands)
-	expectNoGrokScript(t, shortcut.Script, "shortcut after switch back")
+	expectNoFollowUpScript(t, shortcut.Script, "grok", "shortcut after switch back")
 }
 ```

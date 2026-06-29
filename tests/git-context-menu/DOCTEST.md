@@ -99,10 +99,15 @@ scenario
 
 ```sh
 npm run compile
-doctest test ./tests/git-context-menu
+doctest test ./tests/git-context-menu              # skips ui-automation leaves in discovery
+npm run ui-test                                    # explorer-menu-visible leaf
 npm test
-npm run ui-test
+npm run ui-test                                    # all ExTester UI tests (macOS + chromedriver)
 ```
+
+The `ui/explorer-menu-visible/` leaf carries `label: ui-automation` and is
+skipped during discovery runs. Run it via `npm run ui-test` after
+`npm run ui-test:setup`.
 
 ```go
 import (

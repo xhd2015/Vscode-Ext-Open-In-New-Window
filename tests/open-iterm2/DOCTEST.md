@@ -10,17 +10,22 @@ routing, and Switch Shortcut preference storage.
 ## DSN (Domain Specific Notion)
 
 ### Participants
-- **Extension** — `src/extension.ts`; registers palette, shortcut, grok, and
-  switch commands; reads/writes shortcut preference in `globalState`.
-- **iTerm2 actions** — `src/iterm2-actions.ts`; defines cd-only and grok actions.
+- **Extension** — `src/extension.ts`; registers palette, shortcut, dedicated
+  AI CLI commands (Grok, Codex, Claude Code, OpenCode, Pi), and Switch Shortcut;
+  reads/writes shortcut preference in `globalState`.
+- **iTerm2 actions** — `src/iterm2-actions.ts`; defines cd-only and follow-up
+  CLI actions (`grok`, `codex`, `claude`, `opencode`, `pi`).
 - **iTerm2 module** — `src/iterm2.ts`; resolves directory, builds AppleScript, launches via `osascript`.
 - **Node harness** — `testdata/harness/run.mjs` loads compiled extension with mocked `vscode`.
 - **ExTester UI** — verifies command palette visibility and Switch Shortcut action picker on macOS.
 
 ### Behaviors
 - **Palette Open iTerm2** — always cd-only, independent of stored Cmd+; preference.
-- **Cmd+; shortcut** — runs stored preference (default cd-only).
-- **Palette Open iTerm2: Grok** — always runs grok.
+- **Cmd+; shortcut** — runs stored action (default cd-only), including follow-up
+  CLIs for grok, codex, claude, opencode, or pi when selected via Switch Shortcut.
+- **Palette Open iTerm2: Grok** — always runs `grok`.
+- **Palette Open iTerm2: Codex / Claude Code / OpenCode / Pi** — always run the
+  matching CLI (`codex`, `claude`, `opencode`, `pi`), ignoring stored Cmd+; preference.
 - **Switch Shortcut** — persists preference and shows confirmation message.
 - **`resolveTargetDirectory`** — first workspace folder, else home directory.
 - **`buildOpenITerm2Script`** — AppleScript details are covered in `tests/iterm2-applescript/`.
@@ -51,18 +56,40 @@ scenario
 │   │   └── with-unknown-shortcut
 │   ├── shortcut/
 │   │   ├── with-grok-shortcut
+│   │   ├── with-codex-shortcut
+│   │   ├── with-claude-shortcut
+│   │   ├── with-opencode-shortcut
+│   │   ├── with-pi-shortcut
 │   │   ├── with-cd-only-shortcut
 │   │   ├── default-no-stored
 │   │   └── with-unknown-shortcut
 │   ├── grok-command/
 │   │   ├── ignores-cd-only-shortcut
 │   │   └── ignores-grok-shortcut
+│   ├── codex-command/
+│   │   ├── ignores-cd-only-shortcut
+│   │   └── ignores-own-shortcut
+│   ├── claude-command/
+│   │   ├── ignores-cd-only-shortcut
+│   │   └── ignores-own-shortcut
+│   ├── opencode-command/
+│   │   ├── ignores-cd-only-shortcut
+│   │   └── ignores-own-shortcut
+│   ├── pi-command/
+│   │   ├── ignores-cd-only-shortcut
+│   │   └── ignores-own-shortcut
 │   ├── switch-then-execute/
 │   │   ├── switch-to-grok-both-actions
-│   │   └── switch-back-both-actions
+│   │   ├── switch-back-both-actions
+│   │   ├── switch-to-codex-both-actions
+│   │   └── switch-back-from-codex
 │   └── switch-shortcut/
 │       ├── persists-grok
-│       └── persists-cd-only
+│       ├── persists-cd-only
+│       ├── persists-codex
+│       ├── persists-claude
+│       ├── persists-opencode
+│       └── persists-pi
 └── ui/
     ├── command-palette-visible
     └── switch-shortcut-action-picker
@@ -94,8 +121,26 @@ scenario
 | 20 | `command-routing/switch-then-execute/switch-back-both-actions/` | Switch back then both commands correct |
 | 21 | `command-routing/switch-shortcut/persists-grok/` | Switch Shortcut persists grok |
 | 22 | `command-routing/switch-shortcut/persists-cd-only/` | Switch Shortcut persists cd-only |
-| 23 | `ui/command-palette-visible/` | Command appears in palette (ExTester) |
-| 24 | `ui/switch-shortcut-action-picker/` | Switch Shortcut shows action items (ExTester) |
+| 23 | `command-routing/codex-command/ignores-cd-only-shortcut/` | Codex command runs codex when shortcut is cd-only |
+| 24 | `command-routing/codex-command/ignores-own-shortcut/` | Codex command runs codex when shortcut is codex |
+| 25 | `command-routing/claude-command/ignores-cd-only-shortcut/` | Claude command runs claude when shortcut is cd-only |
+| 26 | `command-routing/claude-command/ignores-own-shortcut/` | Claude command runs claude when shortcut is claude |
+| 27 | `command-routing/opencode-command/ignores-cd-only-shortcut/` | OpenCode command runs opencode when shortcut is cd-only |
+| 28 | `command-routing/opencode-command/ignores-own-shortcut/` | OpenCode command runs opencode when shortcut is opencode |
+| 29 | `command-routing/pi-command/ignores-cd-only-shortcut/` | Pi command runs pi when shortcut is cd-only |
+| 30 | `command-routing/pi-command/ignores-own-shortcut/` | Pi command runs pi when shortcut is pi |
+| 31 | `command-routing/shortcut/with-codex-shortcut/` | Shortcut runs codex when preference is codex |
+| 32 | `command-routing/shortcut/with-claude-shortcut/` | Shortcut runs claude when preference is claude |
+| 33 | `command-routing/shortcut/with-opencode-shortcut/` | Shortcut runs opencode when preference is opencode |
+| 34 | `command-routing/shortcut/with-pi-shortcut/` | Shortcut runs pi when preference is pi |
+| 35 | `command-routing/switch-shortcut/persists-codex/` | Switch Shortcut persists codex |
+| 36 | `command-routing/switch-shortcut/persists-claude/` | Switch Shortcut persists claude |
+| 37 | `command-routing/switch-shortcut/persists-opencode/` | Switch Shortcut persists opencode |
+| 38 | `command-routing/switch-shortcut/persists-pi/` | Switch Shortcut persists pi |
+| 39 | `command-routing/switch-then-execute/switch-to-codex-both-actions/` | Switch to Codex then palette/shortcut behave correctly |
+| 40 | `command-routing/switch-then-execute/switch-back-from-codex/` | Switch back from Codex then both actions cd-only |
+| 41 | `ui/command-palette-visible/` | Command appears in palette (ExTester) |
+| 42 | `ui/switch-shortcut-action-picker/` | Switch Shortcut shows all six action items (ExTester) |
 
 AppleScript generation and live `osascript` smoke tests live in `tests/iterm2-applescript/`.
 
@@ -103,10 +148,16 @@ AppleScript generation and live `osascript` smoke tests live in `tests/iterm2-ap
 
 ```sh
 npm run compile
-doctest test ./tests/open-iterm2
+doctest test ./tests/open-iterm2              # skips ui-automation leaves in discovery
+npm run ui-test:open-iterm2                  # command-palette-visible leaf
+npm run ui-test:switch-iterm2-shortcut       # switch-shortcut-action-picker leaf
 npm test
-npm run ui-test
+npm run ui-test                               # all ExTester UI tests (macOS + chromedriver)
 ```
+
+Leaves under `ui/` carry `label: ui-automation` and are skipped during discovery
+runs (including `doctest test ./tests/open-iterm2`). Run them via the matching
+`npm run ui-test:*` script after `npm run ui-test:setup`.
 
 ```go
 import (

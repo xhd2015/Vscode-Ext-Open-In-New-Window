@@ -10,6 +10,6 @@ func Assert(t *testing.T, req *Request, resp *Response, err error) {
 		t.Fatalf("expected ok=true, got executions=%v", resp.Executions)
 	}
 	expectFollowUp(t, resp.FollowUpCommands, "grok")
-	expectGrokScript(t, resp.Script, "shortcut")
+	expectFollowUpScript(t, resp.Script, "grok", "shortcut")
 }
 ```

@@ -21,6 +21,30 @@ const ITERM2_ACTIONS = {
 		description: 'cd to the workspace, then run grok',
 		followUpCommands: ['grok'],
 	},
+	codex: {
+		id: 'codex',
+		label: 'Open iTerm2: Codex',
+		description: 'cd to the workspace, then run codex',
+		followUpCommands: ['codex'],
+	},
+	claude: {
+		id: 'claude',
+		label: 'Open iTerm2: Claude Code',
+		description: 'cd to the workspace, then run claude',
+		followUpCommands: ['claude'],
+	},
+	opencode: {
+		id: 'opencode',
+		label: 'Open iTerm2: OpenCode',
+		description: 'cd to the workspace, then run opencode',
+		followUpCommands: ['opencode'],
+	},
+	pi: {
+		id: 'pi',
+		label: 'Open iTerm2: Pi',
+		description: 'cd to the workspace, then run pi',
+		followUpCommands: ['pi'],
+	},
 };
 
 function loadITerm2Module() {

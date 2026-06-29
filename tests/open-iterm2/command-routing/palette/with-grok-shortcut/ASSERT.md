@@ -10,6 +10,6 @@ func Assert(t *testing.T, req *Request, resp *Response, err error) {
 		t.Fatalf("expected ok=true, got executions=%v", resp.Executions)
 	}
 	expectFollowUp(t, resp.FollowUpCommands)
-	expectNoGrokScript(t, resp.Script, "palette Open iTerm2")
+	expectNoFollowUpScript(t, resp.Script, "grok", "palette Open iTerm2")
 }
 ```

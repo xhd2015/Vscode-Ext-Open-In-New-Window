@@ -45,6 +45,26 @@
         "category": "Open In New Window"
       },
       {
+        "command": "open-in-new-window.openITerm2Codex",
+        "title": "Open iTerm2: Codex",
+        "category": "Open In New Window"
+      },
+      {
+        "command": "open-in-new-window.openITerm2Claude",
+        "title": "Open iTerm2: Claude Code",
+        "category": "Open In New Window"
+      },
+      {
+        "command": "open-in-new-window.openITerm2OpenCode",
+        "title": "Open iTerm2: OpenCode",
+        "category": "Open In New Window"
+      },
+      {
+        "command": "open-in-new-window.openITerm2Pi",
+        "title": "Open iTerm2: Pi",
+        "category": "Open In New Window"
+      },
+      {
         "command": "open-in-new-window.switchITerm2Shortcut",
         "title": "Switch Shortcut",
         "category": "Open In New Window"
@@ -86,6 +106,18 @@
         },
         {
           "command": "open-in-new-window.openITerm2Grok"
+        },
+        {
+          "command": "open-in-new-window.openITerm2Codex"
+        },
+        {
+          "command": "open-in-new-window.openITerm2Claude"
+        },
+        {
+          "command": "open-in-new-window.openITerm2OpenCode"
+        },
+        {
+          "command": "open-in-new-window.openITerm2Pi"
         },
         {
           "command": "open-in-new-window.switchITerm2Shortcut"

@@ -1,3 +1,12 @@
+---
+label: ui-automation
+explanation: >-
+  Slow ExTester UI test. Launches real VS Code and asserts explorer context
+  menu visibility for git vs non-git folders. Skipped in default discovery and
+  short mode. Requires chromedriver (npm run ui-test:setup). Run via
+  npm run ui-test after npm run ui-test:setup.
+---
+
 ## Expected
 - `npm run ui-test` exits 0.
 - ExTester reports both UI cases passing:

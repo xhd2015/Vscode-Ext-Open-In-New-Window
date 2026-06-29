@@ -12,8 +12,14 @@ import {
 const SWITCH_SHORTCUT_COMMAND = 'open-in-new-window.switchITerm2Shortcut';
 const SWITCH_SHORTCUT_LABEL_MATCH = (label: string) =>
 	label.includes('Switch Shortcut') && !label.includes('Switch back');
-const OPEN_ITERM2_ACTION = 'Open iTerm2';
-const OPEN_ITERM2_GROK_ACTION = 'Open iTerm2: Grok';
+const EXPECTED_ACTION_LABELS = [
+	'Open iTerm2',
+	'Open iTerm2: Grok',
+	'Open iTerm2: Codex',
+	'Open iTerm2: Claude Code',
+	'Open iTerm2: OpenCode',
+	'Open iTerm2: Pi',
+];
 
 describe('Switch Shortcut UI', function () {
 	let workspaceRoot: string;
@@ -43,13 +49,11 @@ describe('Switch Shortcut UI', function () {
 		await commandPalette.selectQuickPick(switchShortcutLabel);
 		await VSBrowser.instance.driver.sleep(1_500);
 
-		const shortcutPicker = await waitForActionPickerItems([
-			OPEN_ITERM2_ACTION,
-			OPEN_ITERM2_GROK_ACTION,
-		]);
+		const shortcutPicker = await waitForActionPickerItems(EXPECTED_ACTION_LABELS);
 		const actionLabels = await getQuickPickLabels(shortcutPicker);
-		expect(actionLabels, 'Switch Shortcut action picker labels').to.include(OPEN_ITERM2_ACTION);
-		expect(actionLabels, 'Switch Shortcut action picker labels').to.include(OPEN_ITERM2_GROK_ACTION);
+		for (const label of EXPECTED_ACTION_LABELS) {
+			expect(actionLabels, 'Switch Shortcut action picker labels').to.include(label);
+		}
 
 		await shortcutPicker.cancel();
 		await dismissBlockingOverlays();

@@ -101,11 +101,19 @@ export async function activate(context: vscode.ExtensionContext) {
 			await handleOpenITerm2Shortcut(context);
 		}),
 		vscode.commands.registerCommand('open-in-new-window.openITerm2Grok', async () => {
-			const grokAction = getITerm2Action('grok');
-			if (!grokAction) {
-				return;
-			}
-			await runITerm2Action(context, grokAction);
+			await runDedicatedITerm2Action(context, 'grok');
+		}),
+		vscode.commands.registerCommand('open-in-new-window.openITerm2Codex', async () => {
+			await runDedicatedITerm2Action(context, 'codex');
+		}),
+		vscode.commands.registerCommand('open-in-new-window.openITerm2Claude', async () => {
+			await runDedicatedITerm2Action(context, 'claude');
+		}),
+		vscode.commands.registerCommand('open-in-new-window.openITerm2OpenCode', async () => {
+			await runDedicatedITerm2Action(context, 'opencode');
+		}),
+		vscode.commands.registerCommand('open-in-new-window.openITerm2Pi', async () => {
+			await runDedicatedITerm2Action(context, 'pi');
 		}),
 		vscode.commands.registerCommand('open-in-new-window.switchITerm2Shortcut', async () => {
 			const currentAction = getITerm2ShortcutAction(context);
@@ -354,6 +362,17 @@ function createITerm2Deps(
 		skipLaunch: context.extensionMode === vscode.ExtensionMode.Test,
 		followUpCommands: action.followUpCommands,
 	};
+}
+
+async function runDedicatedITerm2Action(
+	context: vscode.ExtensionContext,
+	actionId: string,
+): Promise<void> {
+	const action = getITerm2Action(actionId);
+	if (!action) {
+		return;
+	}
+	await runITerm2Action(context, action);
 }
 
 async function runITerm2Action(

@@ -1,3 +1,12 @@
+---
+label: ui-automation
+explanation: >-
+  Slow ExTester UI test. Launches real VS Code and drives the command palette.
+  Skipped in default discovery and short mode. Requires chromedriver
+  (npm run ui-test:setup). Run via npm run ui-test:open-iterm2 after
+  npm run ui-test:setup.
+---
+
 ## Expected
 - `npm run ui-test:open-iterm2` exits 0.
 - ExTester reports the Open iTerm2 command is visible in the palette.

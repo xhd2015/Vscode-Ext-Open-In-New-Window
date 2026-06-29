@@ -22,6 +22,30 @@ export const ITERM2_ACTIONS: readonly ITerm2Action[] = [
 		description: 'cd to the workspace, then run grok',
 		followUpCommands: ['grok'],
 	},
+	{
+		id: 'codex',
+		label: 'Open iTerm2: Codex',
+		description: 'cd to the workspace, then run codex',
+		followUpCommands: ['codex'],
+	},
+	{
+		id: 'claude',
+		label: 'Open iTerm2: Claude Code',
+		description: 'cd to the workspace, then run claude',
+		followUpCommands: ['claude'],
+	},
+	{
+		id: 'opencode',
+		label: 'Open iTerm2: OpenCode',
+		description: 'cd to the workspace, then run opencode',
+		followUpCommands: ['opencode'],
+	},
+	{
+		id: 'pi',
+		label: 'Open iTerm2: Pi',
+		description: 'cd to the workspace, then run pi',
+		followUpCommands: ['pi'],
+	},
 ];
 
 export function getITerm2Action(actionId: string): ITerm2Action | undefined {

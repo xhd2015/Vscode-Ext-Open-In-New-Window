@@ -8,6 +8,7 @@ Extension -> globalState (shortcut preference)
 Extension -> openInITerm2 (palette cd-only)
 Extension -> openITerm2Shortcut (Cmd+; preference)
 Extension -> openITerm2Grok (always grok)
+Extension -> openITerm2Codex / Claude / OpenCode / Pi (always each CLI)
 
 # Harness activates extension and runs workflow steps
 Harness -> Extension (switch-shortcut / execute commands)
@@ -46,15 +47,17 @@ func expectFollowUp(t *testing.T, commands []string, want ...string) {
 	}
 }
 
-func expectNoGrokScript(t *testing.T, script string, context string) {
-	if strings.Contains(script, `write text "grok"`) {
-		t.Fatalf("%s script must not run grok; got %q", context, script)
+func expectNoFollowUpScript(t *testing.T, script string, cli string, context string) {
+	needle := `write text "` + cli + `"`
+	if strings.Contains(script, needle) {
+		t.Fatalf("%s script must not run %s; got %q", context, cli, script)
 	}
 }
 
-func expectGrokScript(t *testing.T, script string, context string) {
-	if !strings.Contains(script, `write text "grok"`) {
-		t.Fatalf("%s script must run grok; got %q", context, script)
+func expectFollowUpScript(t *testing.T, script string, cli string, context string) {
+	needle := `write text "` + cli + `"`
+	if !strings.Contains(script, needle) {
+		t.Fatalf("%s script must run %s; got %q", context, cli, script)
 	}
 }
 ```
