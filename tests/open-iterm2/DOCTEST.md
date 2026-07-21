@@ -169,6 +169,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/xhd2015/doctest/session"
 )
 
 var activeGroup string
@@ -225,18 +227,18 @@ type Response struct {
 	InformationMessage     string            `json:"informationMessage"`
 }
 
-func Run(t *testing.T, req *Request) (*Response, error) {
+func Run(t *testing.T, d *session.Doctest, req *Request) (*Response, error) {
 	_ = activeGroup
 	if req.Scenario == "ui-command-palette-visible" || req.Scenario == "ui-switch-shortcut-action-picker" {
-		return runUiTest(t, req.Scenario)
+		return runUiTest(t, d, req.Scenario)
 	}
-	harness := filepath.Join(DOCTEST_ROOT, "testdata", "harness", "run.mjs")
+	harness := filepath.Join(d.DOCTEST_ROOT, "testdata", "harness", "run.mjs")
 	payload, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 	cmd := exec.Command("node", harness, string(payload))
-	cmd.Dir = filepath.Join(DOCTEST_ROOT, "..", "..")
+	cmd.Dir = filepath.Join(d.DOCTEST_ROOT, "..", "..")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -252,7 +254,7 @@ func Run(t *testing.T, req *Request) (*Response, error) {
 	return &resp, nil
 }
 
-func runUiTest(t *testing.T, scenario string) (*Response, error) {
+func runUiTest(t *testing.T, d *session.Doctest, scenario string) (*Response, error) {
 	if testing.Short() {
 		t.Skip("ui-test skipped in short mode")
 	}
@@ -267,7 +269,7 @@ func runUiTest(t *testing.T, scenario string) (*Response, error) {
 	if npmScript == "" {
 		t.Fatalf("unknown ui scenario: %s", scenario)
 	}
-	projectRoot := filepath.Join(DOCTEST_ROOT, "..", "..")
+	projectRoot := filepath.Join(d.DOCTEST_ROOT, "..", "..")
 	cmd := exec.Command("npm", "run", npmScript)
 	cmd.Dir = projectRoot
 	var stdout bytes.Buffer

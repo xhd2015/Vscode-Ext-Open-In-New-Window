@@ -79,6 +79,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/xhd2015/doctest/session"
 )
 
 type Request struct {
@@ -94,14 +96,14 @@ type Response struct {
 	NormalizedKey string `json:"normalizedKey"`
 }
 
-func Run(t *testing.T, req *Request) (*Response, error) {
-	harness := filepath.Join(DOCTEST_ROOT, "testdata", "harness", "run.mjs")
+func Run(t *testing.T, d *session.Doctest, req *Request) (*Response, error) {
+	harness := filepath.Join(d.DOCTEST_ROOT, "testdata", "harness", "run.mjs")
 	payload, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 	cmd := exec.Command("node", harness, string(payload))
-	cmd.Dir = filepath.Join(DOCTEST_ROOT, "..", "..")
+	cmd.Dir = filepath.Join(d.DOCTEST_ROOT, "..", "..")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
